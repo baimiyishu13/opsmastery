@@ -1,28 +1,20 @@
-# opsmastery
-关于运维、自动化和技术的种种探索
-.
-├── README.md
-├── code
-│   └── minio
-│       ├── deploymonio
-│       ├── docker-compose.yaml
-│       ├── minio
-│       ├── minio.service
-│       └── nginx.conf
-└── docs
-    ├── container
-    │   └── docker.md
-    ├── kubernetes
-    │   └── base
-    ├── linux
-    │   └── linux.md
-    ├── middleware
-    │   ├── Elasticsearch.md
-    │   ├── etcd.md
-    │   ├── kafka.md
-    │   ├── minio.md
-    │   └── test
-    └── monitor
-        └── prometheus.md
+![wallhaven-kxj3l1_1920x1080](./all_image/README/wallhaven-kxj3l1_1920x1080.png)
 
-21 directories, 30 files
+💛 实际上分析了一些东西 🧐 ，我缺少的东西，我知道通常如何做得更好。
+
+💙 但是为什么要如此着迷呢？因为为什么不呢？为什么不做到最好，投入 200% 并超越。这就是我喜欢做的事情，这就是我们真正擅长的事情，这就是我所看到的改变自己的职业和生活的事情。
+
+💚所以我的问题是，我怎么能做好所有这些呢？
+
+🎉 在已经对各种 DevOps 技术有了很好的了解
+
++ 🤔 下一步是什么？
++ 🤔 作为一名 DevOps 或运维工程师
++ 🤔 如何进一步提高自己的技能并变得更好？
+
+🛠 工作水平进一步推进职业生涯并学习这一高要求的技能。 我怎么知道这是最好的
+
+🚀这根本不是一件容易的事，而且没有多少工程师能够拥有这项技能。因此，如果真的想凭借自己的专业知识在就业市场上脱颖而出，并将职业生涯推向新的水平。
+
+---
+
