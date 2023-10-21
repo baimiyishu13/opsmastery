@@ -1,0 +1,16 @@
+Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)
+tcp4       0      0  localhost.64386        localhost.64387        ESTABLISHED
+tcp4       0      0  localhost.64387        localhost.64386        ESTABLISHED
+tcp4       0      0  localhost.55690        localhost.64379        CLOSE_WAIT
+tcp4       0      0  localhost.64379        localhost.55690        FIN_WAIT_2
+tcp4       0      0  localhost.55690        localhost.64378        ESTABLISHED
+tcp4       0      0  localhost.64378        localhost.55690        ESTABLISHED
+tcp4       0      0  leledeair.lan.64377    117.89.181.67.https    ESTABLISHED
+tcp4       0      0  localhost.55690        localhost.64376        ESTABLISHED
+tcp4       0      0  localhost.64376        localhost.55690        ESTABLISHED
+tcp4       0      0  leledeair.lan.64313    tsa01s13-in-f10..https SYN_SENT
+tcp4       0      0  leledeair.lan.64312    tsa01s13-in-f10..https SYN_SENT
+tcp4       0      0  leledeair.lan.64310    117.161.4.177.https    ESTABLISHED
+tcp4       0      0  leledeair.lan.64272    117.161.4.177.https    ESTABLISHED
+tcp4       0      0  leledeair.lan.64231    tsa03s08-in-f10..https SYN_SENT
+tcp4       0      0  leledeair.lan.64230    tsa03s08-in-f10..https SYN_SENT
