@@ -1,153 +1,187 @@
+ 
 
+![image-20231028122143866](./all_image/docker/image-20231028122143866.png)
 
-### 入门案例
+Description：Docker 帮助数百万开发人员高效协作地构建、共享和运行应用程序。Docker 协作应用程序开发平台为开发人员提供了无与伦比的集成、可靠和安全工作流程体验，可加速从代码到云的应用程序交付。
 
-[入门指南](https://docs.docker.com/get-started/overview/)
-
-
-
-
-
-
-
-
-
-### 场景
+Links：[docker.com](https://www.youtube.com/redirect?event=channel_description&redir_token=QUFFLUhqbkM5elE5akJZZUNQOVBIbVZzRnFUM3VaVzNSZ3xBQ3Jtc0treERxdUR1bHVnQVA1YnhmcWR5R1NmcHFuYjFodUptZllVbEtQY19keHRNbXlsNjdiUU5COVJmeDNYV3ZtVVRvakY2bUliQmh3Z0tGZEsxbkNMZ0V3NlVJdndDczNXSHBpYVhFYUFCa1NNRDFGRmZQZw&q=https%3A%2F%2Fwww.docker.com%2F)
 
 ---
 
-##### 什么是docker？
+# 📒doc
 
- docker是一个开源的容器化平台，用于管理容器的生命周期 , 是对程序的代码、依赖项、文件、环境变量等进行打包，使能够将应用程序与基础设施分离，以便您可以快速交付软件
 
-##### 容器和虚拟机有何不同
 
-Docker 是轻量级的沙盒，在其中运行的只是应用，虚拟机里面还有额外的系统。
+## 🕸️ Network
 
-1. 跨平台而言：docker 更强
-2. 性能上面，vm将使用更多的内存和CPU，性能损耗大
-3. 自动化：vm需要手动安装所有东西，docker只需要一个命令
-4. 稳定性上，vm不同系统存在差异，docker的稳定性更好
-5. 但是在安全性上，vm更好
+理解 Docker 中的网络以及推进 Kubernetes 和 Docker Swarm 等概念非常重要
 
-##### Docker常用命令
+**Docker 通过使用网络驱动**程序支持网络容器 （`bridge`和`overlay`驱动程序）
 
-docker 【info、version、build、save、load、run、create、loag、exec、pull、push、rm、rmi、ps、login、images】
+Docker的网路
 
-##### Docker容器有几种状态
++ bridge：桥接网路（默认）- 虚拟以太网
++ hosts：主机网络 - 直接使用主机的网路，直接与宿主机的网路进行绑定
++ overlay:   有多个主机并且希望在多个主机上创建集群，覆盖网络非常有用
 
+这三个网络非常流行
 
 
 
+### host / bridge 网络
 
-### dockerfile
+安装docker 默认获得三个网络
 
-+ FROM
-+ LABLE
-+ RUN
-+ COPY、ADD
-+ CMD
-+ EXPOSE
-+ WORKERDIR
-+ USER
-+ VOLUME
-+ ENTPYPOINT
+```sh
+# docker network ls
+NETWORK ID     NAME              DRIVER    SCOPE
+f47de05a88b4   bridge            bridge    local
+109f6edbe737   host              host      local
+5aa7cb36bb57   none              null      local
+```
 
+在docker的主机上，又一个名为docker0的虚拟交换机或网桥
 
+ ![image-20231028165055570](./all_image/docker/image-20231028165055570.png)
 
-网路
+足以做的就是将 容器 插入其中，这个网络是由桥接驱动程序创建的，仅限于当了当前这个docker 主机，因为桥接程序都是关于单主机网络的。   
 
-1. 桥接：bridge
-2. host
-3. none
 
 
+### Overlay 网络
 
+docker overlay 覆盖驱动程序来了解多主机网络，因此多主机网络时，谈论的是创建单个网络以便跨多 docker 主机 的广播域的单层。
 
+通过3层路由连接到二层网络
 
++ 创建一个跨多主机的新网络，提供一个网络层
 
+  <img src="./all_image/docker/image-20231028154359413.png" alt="image-20231028154359413" style="zoom:35%;" />
 
-项目：
+```sh
+➜  container git:(main) ✗ docker swarm init
+➜  container git:(main) ✗ docker network ls
+NETWORK ID     NAME              DRIVER    SCOPE
+f47de05a88b4   bridge            bridge    local
+13e14623a472   docker_gwbridge   bridge    local
+109f6edbe737   host              host      local
+1c4n3a9gux90   ingress           overlay   swarm
+```
 
-k8s部署项目 - 九天AI平台 （九天平台是干什么的）
+查看已经有了新的网络，用于夸主机通信
 
-+ 项目功能简介
-+ 技术架构
-+ 此项目涉及到什么
++ ingress           overlay
 
+创建一个overlay网络
 
+```sh
+# docker network create -d overlay  overnet
+```
 
-项目中的技术
+创建容器附加到网络上
 
-1. 微服务架构
+```sh
+# docker service create --name myservice \
+	--network overnet \
+	--replicas 2 \
+	alpine sleep 1d
+	
+# docker service ls
+ID             NAME        MODE         REPLICAS   IMAGE           PORTS
+7uxdx7cmf4zg   myservice   replicated   2/2        alpine:latest
+```
 
-2. 基础设施：K8s（kubeadm）+ keeplive/harporx + kubesphere 
+查看 overnet
 
-公共服务：
+```sh
+➜  container git:(main) ✗ docker network inspect overnet
+[
+...
+        "Containers": {
+            "341d4da1b60a8dbf13ea478784e83205b67afafb6c38d4eac434434b61be1706": {
+                "Name": "myservice.1.5e00gmqg35030bkdbcb2mk78u",
+                "EndpointID": "0f1818c518f7feea86c9c2314784a7c56f6bc935cddd3addffd3082ba4671496",
+                "MacAddress": "02:42:0a:00:01:20",
+                "IPv4Address": "10.0.1.32/24",
+                "IPv6Address": ""
+            },
+...
+]
+```
 
-2. harbor
-3. prometheus
-4. 负载均衡器：nginx
-5. nacos
+在另外一台主机上也能看到：
 
-微服务网关：api-gateway
++ 它们是相同的 overlay网络，能够相互`ping` 通
 
-中间件：
+```sh
+            "c8f402313ce1430a7d3e796b3c95617b19cc8503ab8ba51cd4cccef766df4c9e": {
+                "Name": "myservice.2.bbj3wwpwjox49pdtq6t4y94uz",
+                "EndpointID": "e853db6286f3c14345dea77a21c749bce27f3367459f77be620acfb047aace02",
+                "MacAddress": "02:42:0a:00:01:21",
+                "IPv4Address": "10.0.1.33/24",
+                "IPv6Address": ""
+            }
+```
 
-1. mysql
-2. redis
-3. nacos
-4. ES
-5. kafka
+使得 docker 使用多主机网络变得超级简单是多么容器
 
 
 
-配置文件和数据库文件怎么管理的 - nacos 配置管理/服务注册
 
 
+## 📦 Volume
 
-项目流水线：
+构建镜像时，，第一层作为基础，然后将需要的一层一层添加。
 
-前期准备：
+**读写分离的联合文件系统**：将多个只读层（镜像层）以及一个可写层（容器层）组合在一起，形成一个容器的文件系统
 
-1. git
-2. harbor
-3. k8s集群的kubeconfig
+对于持久性数据，最好使用数据卷或绑定挂载来确保数据的安全性和持久性。
 
-后端服务：
+可以使用共享存储：
 
-1. helm
-2. 自研的devops平台、手动发布
-3. dockerfile
 
 
 
-我在此项目中使用的技术：（重点 ）
 
-+ harbor、kubeadm、keeplive、harporxy、kubesphere、prometheus、grafana、
 
-整个集群部署、监控部署、kubesphere部署、业务发布、EFK、mysql、GPU exporter、ES exporter
 
-项目中我的到经验
 
 
 
-简历格式
 
-1. 个人信息
 
-2. 个人优势：我在项目中使用笔记熟的技术linux、shell、docker、k8s、ansible、prometheus、（不要写闭源产品）
 
-3. 技术栈
 
-4. 司历 
 
-   1. 司龄（不要写 那年到那年）
-   2. 职责
-   3. 项目（业务、技术、我在想吗当中使用的技术部分、我在想吗中总结的经验）
 
-   
 
 
 
-​	交付工作本身就是一项非常有成就感的工作，改进事物，优化，使事情更快，自动化任务等等。从一名网络工程师，在一次机会中在接触到了这份工作，使用容器对应用程序部署，操作镜像等，或者围绕docker和k8s交付，我注意到这些内容对我来说比做网络更有趣，但是我相信意义远不止于此，看的越远就越学无止境。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
