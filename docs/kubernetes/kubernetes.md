@@ -729,6 +729,8 @@ UDP端口8472，对进行抓包。
 1. eth0
 2. Tunnel0
 
+##### ClusterIP
+
 使用deployment部署了四个 Pod
 
   <img src="./all_image/kubernetes/image-20231101130051906.png" alt="image-20231101130051906" style="zoom:50%;" />
@@ -758,11 +760,39 @@ Tunnel0 隧道，相当于是一个路由器，与另外一个路由器通信然
 
   因此 cin - 简历了一个现有底层网络之上，无需对现有网络进行任何更改。
 
+```sh
+kubectl expose deployment hello-word --port=8080 --target-port=8080 --type=ClusterIP
+```
+
+回车时会发生的情况：
+
+1. 请求发送到api服务器，会被验证，然后持久化的etcd；
+2. 某时刻控制器唤醒 Service服务会检查Service请求并且创建一个Endpoint（Pod列表-端口）；
+3. 某时刻kube-proxy被唤醒，执行两件事：创建一个虚拟IP、更改iptabls规则，创建一条规则很简单：表示 任何发往该IP的流量和端口号拦截该流量，重定向目标IP、从Endpoint列表随机选择一个。
+
+>  确保在部署Pod时，添加探针检测
 
 
 
+##### NodePort
 
+NodePort所做的事情实际上就是将 Cluster虚拟IP 暴露给外界。
 
+ ```sh
+ kubectl expose deployment hello-word --port=8080 --target-port=8080 --type=NodePort
+ ```
+
+之前都是相同的操作：编辑iptables表添加规则，创建CLusterIP等
+
+唯一额外做的就是：
+
++ 创建一个随机的端口，然后这是可配置的，并且公开集群服务器，以便在集群的每个节点上打开规则或端口。
+
+客户端：
+
++ 使用 nodeIP和端口访问（src:客户端，dest:nodeIP加端口）
+
+  <img src="./all_image/kubernetes/image-20231101190209376.png" alt="image-20231101190209376" style="zoom:50%;" />
 
 
 
