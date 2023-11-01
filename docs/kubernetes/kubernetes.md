@@ -596,6 +596,240 @@ Kubernets 绝对不是唯一一个使用CNI的软件
 
 当按照Kubernets时，必须安装CNI，并且有多种选择。
 
+🎯 Flannel 是最古老的、最简单的一种，适合中小型的kubernetes集群
+
++ 所有的节点都在同一个子网
++ 每个节点管理部分子网并分配本地的Pod的IP，所以 Flannel基本上是为每个节点分配一个 IP块，当在特定的节点上创建一个部分时，为该部分 选择地址块的一个IP
++ 当Pod位于不同节点时，是通过第二层桥接连接的，默认封装的是 Vxlan 意味着它在UDP数据包内包装了一层以太网数据包，它创建了一个覆盖现有底层网络的UDP隧道。
+
+Flannel的工作原理：
+
++ 节点内：通过网桥访问
++ 与另外一个节点的Pod通信，Flannel会创建一个新的接口，在每个节点称为随机接口，通过网桥到达最终接口，然后流进默认的节点接口，然后最终设置一个Vxlan基本上是在两个节点之间设置一条 UPD隧道。
+
+在该消息中包含以太帧，基本上具有MAC头部（源/目MAC）和源IP地址、数据以及更多一些其他信息。
+
+整个包从一个节点发送到另一个节点，然后在网桥进行分解，转发到那一部分
+
+ <img src="./all_image/kubernetes/image-20231030094904676.png" alt="image-20231030094904676" style="zoom:50%;" />
+
+
+
+检查下CNI创建的路由
+
++ 列出所有已创建的虚拟以太网接口 （与Pod数对应）
+
+```
+ip link show type veth
+```
+
++ 显示系统中已配置的网络桥接（bridge）设备
+
+```
+ip link show type bridge
+```
+
+会有很多网桥：
+
+1. virbr0
+2. docker0：没有被使用
+3. cni0
+
+
+
+从一个Pod到另外一个Pod，实际上通过传输的是什么
+
+```sh
+# 查看 Pod info
+kubectl get pod -owide
+
+# 查看 Service
+kubectl get svc
+```
+
+ 有一个服务：通过nodeport暴露了端口（8080:30115）
+
++ curl hostsIP:30115 👌
++ curl  podip:8080 👌
+
+UDP端口8472，对进行抓包。
+
+
+
+#### 深入了解Calico Kubernets CNI提供程序
+
+ 
+
+
+
+
+
+#### Kubernets Service
+
+> 具体将关注控制平面，如何创建Pod
+
++ 控制平面是什么，已经他们是如何实现的，实际上与Pod的网路密切相关
+
++ 👀 Kubernets Service是什么
++ kube-proxy 和core- DNS
++ service type：ClusterIP、NodePort、LoadBalancer、Headless
++ 服务发现
+
+
+
+ <img src="./all_image/kubernetes/image-20231030152651389.png" alt="image-20231030152651389" style="zoom:50%;" />
+
+
+
+节点主要分为：master节点、worker节点
+
+控制平面：
+
++ 由 etcd 组成的的控制平面，它是一个数据库，创建所有的对象及状态都记录在内部etcd
++ api-server：整个控制平面的接口，特别etcd的接口，所有进出etcd的通信都需要经过api-server
++ Controller Manager：控制管理器，托管许多的控制器
++ Scheduler： 会监听新需要创建的Pod和未被调度到节点上的Pod，确保分配到Pod节点
+
+工作节点：
+
++ kubelet：启动创建容器，并确保容器监健康
++ CRI：容器运行时的接口  
++ CNI Plug-in：确保Pod具有网路，以便所有的网路（namespace、以太网接口等）
++ kube-proxy：管理节点上运行的服务
++ 主机网络：IP地址、以太网接口、防火墙规则、都留在hosts 网络命名空间
+
+
+
+🎯 当创建一个Pod时会发生什么？
+
+首先：命令行 kubectl创建部署
+
+1. 创建一个清单，通过api服务器将清单发送到etcd
+2. 显然未被创建，api-server监听到请求后
+3.   接下来：告诉 Controller Manager负责部署的控制器，通过api-server连接到etcd，更新ReplicsSet 1，另一个控制器就回去检查副本数，因此需要创建一个副本。
+4. 某个时刻，调度器监听到由Pod未被调度到节点，会去分配到适合的节点，比如分配给node1，再通过api-serevr写入etcd
+5. kubectl监听到通过api-server，api-server会告诉它创建一个pod
+6. 调用CRI 与 容器运行时连接，然后检查请求、检查镜像，并最终运行容器
+7. 此时的Pod还没有任何网络，下一步就是CNI插件 创建 网络命名空间，然后创建虚拟以太网。一个在Pod上创建、一个在主机上创建，用于主机和Pod的通信的管道。
+8. 然后为网络接口分配一个IP地址，会为Pod设置默认路由，最后更新主机并且设置一条 路由如何到达Pod。
+9. kubectl做的最后一件事：与api-server通信，更新etcd的数据库
+
+> 如果节点故障，或者删除了Pod，它会重新创建
+
+  <img src="./all_image/kubernetes/image-20231030164818180.png" alt="image-20231030164818180" style="zoom:50%;" />
+
+
+
+示例：
+
+> 一个集群三个节点，一个master、两个worker
+
+网路使用calico（默认的设置）使用ipip，每个节点上两个接口
+
+1. eth0
+2. Tunnel0
+
+使用deployment部署了四个 Pod
+
+  <img src="./all_image/kubernetes/image-20231101130051906.png" alt="image-20231101130051906" style="zoom:50%;" />
+
+问题：
+
+1. 可以通过Pod的IP来直接访问，但是Pod的生命周期只有一次，IP地址会不断的变化，所以我们不能真正的依赖Pod的IP。
+2. 它没有负载均衡，所以需要一个负载均衡，并且需要一种虚拟IP地址的方法，通过其去调用，而不是通过Pod的IP，这就是 Service。
+
+Service：创建负载均衡器并且提供重定向或者创建虚拟名称的方式或IP地址，可以从集群中任何地方调用。
+
++ 抽象方法，将一组运行的Pod导出为 network service（自身部件上提供的抽象）
++ 通过虚拟IP或者虚拟名称 提供持久断点。（客户端并不关心Pod的IP和数量）
++ 对后端部分进行负载均衡
++ Pod控制器操作期间自动更新，Service Controller 会检测并相应的调整
++ 类型：CLusterIP、NodePort、LoadBalancer
+
+Service的工作：
+
++ 标签和Selectors来匹配Pod
++ 创建并且注册 Endpoints ，基本上是 Pod的IP和端口
++ kube-proxy 安装在每个节点上，创建虚拟IP地址、并写入iptabs规则，为Pod提供L4负载均衡。在不同模式下还有ipvs，这是较新的方法。
+
+cailico-cni为Pod提供了网路
+
+Tunnel0 隧道，相当于是一个路由器，与另外一个路由器通信然后调用另一侧的服务。这都是安装calico的基本设置。
+
+  因此 cin - 简历了一个现有底层网络之上，无需对现有网络进行任何更改。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -795,27 +1029,7 @@ Kubernetes 支持很多类型的卷。 [Pod](https://kubernetes.io/zh-cn/docs/co
 
 
 
-### **持久卷** PV
-
-是集群中的一块存储，可以由管理员事先制备， 或者使用[存储类（Storage Class）](https://kubernetes.io/zh-cn/docs/concepts/storage/storage-classes/)来动态制备
-
-+ 此 API 对象中记述了存储的实现细节，无论其背后是 NFS、iSCSI 还是特定于云平台的存储系统。
-
-
-
-### PVC **持久卷申领**
-
-表达的是用户对存储的请求。
-
-+ 概念上与 Pod 类似。 Pod 会耗用节点资源，而 PVC 申领会耗用 PV 资源。
-
-申领：大小和访问模式
-
-针对不同的问题用户需要的是具有不同属性（如，性能）
-
-
-
-数据卷可以被 Retained（保留）、Recycled（回收）或 Deleted（删除）。
+ 
 
 > 目前，仅 NFS 和 HostPath 支持回收（Recycle）
 
