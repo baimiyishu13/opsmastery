@@ -28,6 +28,20 @@
     - [ReplicaSet](#replicaset)
     - [StatefulSet](#statefulset)
   - [🕸️ NetWork](#️-network)
+    - [了解网络](#了解网络)
+      - [容器网络](#容器网络)
+        - [🧡 OSI模型](#-osi模型)
+        - [🧡 网络适配器 \& 路由器 \& 交换机](#-网络适配器--路由器--交换机)
+        - [🧡 网路namespace](#-网路namespace)
+        - [🧡 如何创建两者之间的隧道](#-如何创建两者之间的隧道)
+    - [Pod网络、CNI和Flannel CNI插件](#pod网络cni和flannel-cni插件)
+        - [kubernetes Pod网络](#kubernetes-pod网络)
+        - [CNI](#cni)
+      - [深入了解Calico Kubernets CNI提供程序](#深入了解calico-kubernets-cni提供程序)
+      - [Kubernets Service](#kubernets-service)
+        - [ClusterIP](#clusterip)
+        - [NodePort](#nodeport)
+        - [LoadBanlancer](#loadbanlancer)
     - [Service](#service)
       - [Service - ClusterIP](#service---clusterip)
       - [Service - NodePort](#service---nodeport)
@@ -38,8 +52,6 @@
     - [Service 与 Pod 的 DNS](#service-与-pod-的-dns)
   - [🗳️ Volume](#️-volume)
     - [Type](#type)
-    - [**持久卷** PV](#持久卷-pv)
-    - [PVC **持久卷申领**](#pvc-持久卷申领)
   - [📜 配置](#-配置)
     - [ConfigMap](#configmap)
     - [Secret](#secret)
@@ -58,6 +70,7 @@
     - [调度器性能调优](#调度器性能调优)
       - [设置阈值 ](#设置阈值-)
       - [节点打分阈值](#节点打分阈值)
+
 # 📒doc
 
 ## 🏗️ Kubernetes 架构
@@ -796,9 +809,15 @@ NodePort所做的事情实际上就是将 Cluster虚拟IP 暴露给外界。
 
 
 
+##### LoadBanlancer
 
+  如果集群在公有云上，那么可以利用LB服务
 
+  <img src="https://support.huaweicloud.com/usermanual-cce/zh-cn_image_0000001533065538.png" alt="img" style="zoom:60%;" />
 
+```
+kubectl expose deployment hello-word --port=8080 --target-port=8080 --type=LoadBalancer
+```
 
 
 
