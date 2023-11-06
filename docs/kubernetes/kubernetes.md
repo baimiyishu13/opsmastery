@@ -746,27 +746,187 @@ NodePort所做的事情实际上就是将 Cluster虚拟IP 暴露给外界。
 kubectl expose deployment hello-word --port=8080 --target-port=8080 --type=LoadBalancer
 ```
 
+ <img src="https://support.huaweicloud.com/productdesc-elb/zh-cn_image_0000001253004159.png" alt="img" style="zoom:50%;" />
+
+通过负载均衡器添加公共IP 和端口号，从客户端访问LoadBalabce时，都是选择不同的节点。
+
+  <img src="./all_image/kubernetes/image-20231103155302457.png" alt="image-20231103155302457" style="zoom:50%;" />
+
+ 
 
 
 
 
 
+##### 特殊的Service类型
+
+External Service
+
++ 没有选择器，并且使用 dns 名称
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: prod
+spec:
+  type: ExternalName
+  externalName: my.database.example.com
+```
+
+无头服务（Headless Services）
+
+有时你并不需要负载均衡，也不需要单独的 Service IP。遇到这种情况，可以通过显式设置 集群 IP（`spec.clusterIP`）的值为 `"None"` 来创建**无头服务（Headless Service）**。
+
+
+
+#### Iptables
+
+讨论数据包和路由时常会提到Iptables
+
+iptables：作为Linux的防火墙系统，与liunx内核网路栈中的数据包过滤挂钩进行相互交互，称为：网路过滤框架。
+
+ 使用表来组织规则，会根据策略类型进行分类
 
 
 
 
 
+##### Service Discovery
+
+core-dns：集群内部配置的dns服务，非常轻量级的dns，用于提供服务发现， 即使服务和文件被创建和删除也会查询，并且更新相应dns。
+
+
+
+```sh
+kubectl create deployment test-nginx --image=nginx --replicas=3
+kubectl expose deployment test-nginx --port 8080 --target-port 80 --type=ClusterIP
+```
+
+查看：
+
+```sh
+controlplane $ kubectl exec -ti test-nginx-f5c579c7d-sbnfs -- sh
+# cat /etc/resolv.conf
+search default.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.96.0.10
+options ndots:5
+```
+
+域名解析：
+
+```sh
+controlplane $ nslookup test-nginx.default.svc.cluster.local 10.96.0.10
+Server:         10.96.0.10
+Address:        10.96.0.10#53
+
+Name:   test-nginx.default.svc.cluster.local
+Address: 10.110.5.235
+
+controlplane $ nslookup 10.110.5.235 10.96.0.10
+235.5.110.10.in-addr.arpa       name = test-nginx.default.svc.cluster.local.
+```
+
+容器内
+
+```sh
+curl http://test-nginx.default.svc:8080
+curl http://test-nginx.default:8080
+curl http://test-nginx:8080
+```
+
+使用service name就可以构建url并且可以通过这种方式使用服务。
+
+
+
+#### Kubernets网路策略
+
+在k8s背景下谈论网路策略时，实际上是在谈网路安全。
+
+网路策略的真正含义是：网路安全
+
+
+
++ 应用程序的 负载均衡器 平衡，信息安全团队将打开适当的防火墙，允许客户端调用
++ LB到服务器的防火墙，允许的范围策略
++ 服务器到数据库的防火墙策略
+
+传统的防火墙配置 敏捷性并不是那么重要，但在过去几年还在用，在Kuberntes 的架构中并不适合。
+
+开发团队：自动化整个应用程序生命周期
+
++ 创建 Dockerfile，构建镜像用于各种容器、ui、业务、db等
++ deployment.yaml、Service.yaml、Policy.yaml等等部署到k8s集群中，
++ 以及添加策略，这是Pod的安全性以及允许什么
+
+
+
+kubectl 执行yaml文件
+
++ 与控制平面进行会话，控制平面与kubectl进行会话，然后从docker仓库获取images并创建Pod，将它们联网
++ 接下来，运行service.yaml ,然后iptables在表中创建规则并创建一个IP地址，然后允许入口访问这些Pod
++ 最后：运行Polucy.ytaml，再次运行iptables 只允许某些流量到达此Pod
++ iptables会允许什么到该Pod、也会拒绝拦截什么到该Pod
+
+物理Top实际上确实不觉得如何实现安全性，并且安全性现在是声明性的，没有管理安全性和防火墙的物理设备  
+
+
+
+#####  👀什么是网路策略
+
+​		在k8s中，实际上是被定义成扁平网路。其中每个Pod都可以使用Pod IP或者集群中所有的其他部分进行通信，这种方法极大的简化了网路设计，允许如何是好集群调整网路工作负载，而无需任何操作。这实际上是k8s的优点。
+
+​		Pod的生命周期只有一次，IP可能会发生变化，传统的无力防火墙发挥不了作用，是网路策略真正发挥作用的地方，以及如何在k8s集群中发挥。
+
+
+
+重要性：
+
+> 黑客越来越复杂
+
++ 开发不仅仅是编码，还是需要考虑安全性，如何减轻分险，传统的防火墙对于保护企业的边界仍然很重要，但它们并不是很重要对于k8s，对于南北安全很重要。
++ 一旦黑客通过Pod的方式进入集群，分配的IP也会发生变化，Pod的IP不是永久性的，传统防火墙并不是真正的有用。
++ 网路策略是通过 selecter 标签匹配Pod
+
+网路策略代表了网路安全的重要演变，不仅仅是因为它处理动态微服务的本质，因为它使得Devops 工程师更容器去定义安全性，而且我们必须保护应用程序。
+
+例如：
+
++ 只有此Service下的服务才能连接到 数据库
++ 只能访问此 namespac 空间的服务的 8080端口
+
+
+
+策略的主要功能
+
+1. namespace 范围
+2. label selectors
+3. CIDR （例如从集群外部进入的ips 流量，或者内部从Pod出口的流量）
+4. Port - TCP\UDP\SCTP
 
 
 
 
 
+#### Calico 的网路策略
+
+安装calico 容器接口或cni时，还安装了所有必要的calico策略组件。
+
+> 安装 calico ctl工具
+
+calico 实现网路策略和好处：
+
++ 如何类型的端点，Pod、vm、hosts接口，实际上可以保护集群节点
++ 策略：允许、拒绝
++ source：port、protocol、http、icmp、IP or CIDR、Endpoint、SA
++ namespace 策略，类似于k8s内置的网路策略
 
 
 
 
 
-
+cilium
 
 
 
